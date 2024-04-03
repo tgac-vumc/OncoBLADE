@@ -65,7 +65,6 @@ def VarQ(Nu, Beta, Omega, Ngene, Ncell, Nsample):
         for k in range(Ncell):
             CovB[:,l,k] = - Btilda[:,l] * Btilda[:,k] / (1+B0)
 
-
     # Ngene by Nsample by Ncell by Ncell
     CovX = np.empty((Ngene, Nsample, Ncell, Ncell))
     for l in range(Ncell):
@@ -73,7 +72,6 @@ def VarQ(Nu, Beta, Omega, Ngene, Ncell, Nsample):
             for i in range(Nsample):
                 CovX[:,i,l,k] = np.exp(Nu[i,:,k] + Nu[i,:,l] + \
                         0.5*(np.square(Omega[:,k]) + np.square(Omega[:,l])))
-
 
     VarTerm = np.zeros((Ngene, Nsample))
     for i in range(Nsample):
@@ -89,7 +87,6 @@ def VarQ(Nu, Beta, Omega, Ngene, Ncell, Nsample):
             if l != k:
                 for i in range(Nsample):
                     CovTerm[:,i] = CovTerm[:,i] + CovX[:,i,l,k] * CovB[i,l,k]
-    
      
     return VarTerm + CovTerm
 
@@ -122,13 +119,11 @@ def grad_Nu(Y, SigmaY, Nu, Omega, Beta, Mu0, Alpha0, Beta0, Kappa0, Ngene, Ncell
         ExpBetaN = ExpBetaN + 0.5*np.square(Nu[i,:,:] - NuExp)
         Diff = Diff + (Nu[i,:,:] - NuExp) / Nsample
 
-
     Nominator = np.empty((Nsample, Ngene, Ncell)) 
     for i in range(Nsample):
         Nominator[i,:,:] = Nu[i,:,:] - NuExp - Diff + Kappa0 / (Kappa0+Nsample) * (NuExp - Mu0)
    
     grad_PX = - AlphaN * Nominator / ExpBetaN
-
 
     # gradient of PY (second term)
     # Ngene by Nsample (Variance value of Y)
@@ -144,7 +139,6 @@ def grad_Nu(Y, SigmaY, Nu, Omega, Beta, Mu0, Alpha0, Beta0, Kappa0, Ngene, Ncell
     for l in range(Ncell):
         for k in range(Ncell):
             CovB[:,l,k] = - Btilda[:,l] * Btilda[:,k] / (1+B0)
-
 
     ExpX = np.empty(Nu.shape) # Nsample by Ngene by Ncell
     for i in range(Nsample):
@@ -169,7 +163,6 @@ def grad_Nu(Y, SigmaY, Nu, Omega, Beta, Mu0, Alpha0, Beta0, Kappa0, Ngene, Ncell
     for c in range(Ncell):
         for i in range(Nsample):
             g_Exp[:,c,i] = ExpX[i,:,c]*Btilda[i,c]
-
 
     # Ngene by Ncell by Nsample
     g_Var = np.empty((Ngene, Ncell, Nsample))
@@ -196,7 +189,6 @@ def grad_Nu(Y, SigmaY, Nu, Omega, Beta, Mu0, Alpha0, Beta0, Kappa0, Ngene, Ncell
     for c in range(Ncell):
         b[:,c,:] = - Diff * (2*g_Exp[:,c,:] / Exp + a[:,c,:])
 
-
     grad_PY = np.zeros((Nsample, Ngene, Ncell))
     for c in range(Ncell):
         grad_PY[:,:,c] = -np.transpose( 0.5/np.square(SigmaY) * (a[:,c,:] + b[:,c,:]))
@@ -220,7 +212,6 @@ def grad_Omega(Y, SigmaY, Nu, Omega, Beta, Mu0, Alpha0, Beta0, Kappa0, Ngene, Nc
     Nominator = - AlphaN * (Nsample-1)*Omega + Kappa0 /(Kappa0 + Nsample) * Omega
     grad_PX = Nominator / ExpBetaN
 
-
     # gradient of PY (second term)
     # Ngene by Nsample (Variance value of Y)
     B0 = np.sum(Beta, axis=1) # Nsample
@@ -235,7 +226,6 @@ def grad_Omega(Y, SigmaY, Nu, Omega, Beta, Mu0, Alpha0, Beta0, Kappa0, Ngene, Nc
     for l in range(Ncell):
         for k in range(Ncell):
             CovB[:,l,k] = - Btilda[:,l] * Btilda[:,k] / (1+B0)
-
 
     ExpX = np.exp(Nu) # Nsample by Ngene by Ncell
     for i in range(Nsample):
@@ -260,7 +250,6 @@ def grad_Omega(Y, SigmaY, Nu, Omega, Beta, Mu0, Alpha0, Beta0, Kappa0, Ngene, Nc
     for c in range(Ncell):
         for i in range(Nsample):
             g_Exp[:,c,i] = ExpX[i,:,c]*Btilda[i,c]*Omega[:,c]
-
 
     # Ngene by Ncell by Nsample
     g_Var = np.empty((Ngene, Ncell, Nsample))
@@ -287,11 +276,9 @@ def grad_Omega(Y, SigmaY, Nu, Omega, Beta, Mu0, Alpha0, Beta0, Kappa0, Ngene, Nc
     for c in range(Ncell):
         b[:,c,:] = - Diff * (2*g_Exp[:,c,:] / Exp + a[:,c,:])
 
-
     grad_PY = np.zeros((Ngene, Ncell))
     for c in range(Ncell):
         grad_PY[:,c] = np.sum(-0.5/np.square(SigmaY) * (a[:,c,:] + b[:,c,:]), axis=1)
-
 
     # Q(X) (fourth term)
     grad_QX =  - Nsample / Omega
@@ -321,13 +308,12 @@ def g_Exp_Beta(Nu, Omega, Beta, B0, Ngene, Ncell, Nsample):
         for c in range(Ncell):
             g_Exp[s,c,:] = t(ExpX[s,:,c] / B0[s]) - B0mat[s,:]
 
-
     return g_Exp
 
 
 @njit(fastmath=True)
 def g_Var_Beta(Nu, Omega, Beta, B0, Ngene, Ncell, Nsample):
-
+    
     B0Rep = np.empty(Beta.shape) # Nsample by Ncell
     for c in range(Ncell):
         B0Rep[:,c] = B0
@@ -349,14 +335,12 @@ def g_Var_Beta(Nu, Omega, Beta, B0, Ngene, Ncell, Nsample):
     for s in range(Nsample):
         for c in range(Ncell):
             g_Var[s,c,:] = t(ExpX2[s,:,c]) * aa[s,c]
-
-       
+  
     for i in range(Ncell):
         for j in range(Ncell):
             if i != j:
                 for s in range(Nsample):
                     g_Var[s,i,:] = g_Var[s,i,:] + t(ExpX2[s,:,j])* aaNotT[s,j]
-
 
     B_B02 = Beta / np.square(B0Rep) # Beta / (Beta0^2) / Nsample by Ncell
     B0B0_1 = B0Rep * (B0Rep + 1) # Beta0 (Beta0+1) / Nsample by Nell
@@ -369,7 +353,6 @@ def g_Var_Beta(Nu, Omega, Beta, B0, Ngene, Ncell, Nsample):
     for s in range(Nsample):
         for c in range(Ncell):
             g_Var[s,c,:] = g_Var[s,c,:] - 2 * t(ExpX[s,:,c]) * B_B02[s,c]
-
     
     Dot = np.zeros((Nsample, Ngene))
     for i in range(Nsample):
@@ -388,7 +371,6 @@ def g_Var_Beta(Nu, Omega, Beta, B0, Ngene, Ncell, Nsample):
         for k in range(Ncell):
             for i in range(Nsample):
                 CovX[i,:,l,k] = ExpX[i,:,l] * ExpX[i,:,k]
-
                 
     gradCovB = np.empty((Nsample, Ncell, Ncell))
     B03_2_B03_B0_1 = (3*B0 + 2) / np.power(B0,3) / np.square(B0+1)
@@ -407,12 +389,10 @@ def g_Var_Beta(Nu, Omega, Beta, B0, Ngene, Ncell, Nsample):
                     CovTerm1[i,l,k,:] = gradCovB[i,l,k]*CovX[i,:,l,k]
                     CovTerm2[i,l,k,:] = B_B0_1_B0B0_1[i,l]*CovX[i,:,l,k]
 
-
     for c in range(Ncell):
         g_Var[:,c,:] = g_Var[:,c,:] + np.sum(np.sum(CovTerm1, axis=1), axis=1)
     g_Var = g_Var - 2*np.sum(CovTerm2, axis=1)
 
-       
     return g_Var
 
 
@@ -620,7 +600,6 @@ class OncoBLADE:
         grad_QF = (Beta-1)*polygamma(1, Beta) - \
             np.tile(np.sum((Beta - 1) * np.tile(polygamma(1, B0)[:,np.newaxis], [1,self.Ncell]), axis=1)[:,np.newaxis], [1,self.Ncell])
 
-        #return grad_PF
         return grad_PY + grad_PF * np.sqrt(self.Ngene / self.Ncell) - grad_QF * np.sqrt(self.Ngene / self.Ncell)
 
     # E step
@@ -677,7 +656,7 @@ class OncoBLADE:
 
             return g
 
-        
+        # Perform Optimization
         Init = np.concatenate((self.Nu.flatten(), self.Omega.flatten(), self.Beta.flatten()))
         bounds = [(-np.inf, np.inf) if i < (self.Ncell*self.Ngene*self.Nsample) else (0.0000001, 100) for i in range(len(Init))]
 
@@ -709,6 +688,7 @@ class OncoBLADE:
         # check values in hyperparameters
         if not np.all(np.isfinite(self.Y)):
             warnings.warn('non-finite values detected in bulk gene expression data (Y).', Warning, stacklevel=2)
+            
         if np.any(self.Y < 0):
             warnings.warn('Negative expression levels were detected in bulk gene expression data (Y).', Warning, stacklevel=2)
 
@@ -795,6 +775,7 @@ class OncoBLADE:
                     Fraction[IndCell] = Fraction[IndCell] / np.sum(Fraction[IndCell])  # make fraction sum to one for the group
                     Fraction[IndCell] = Fraction[IndCell] * Expected[sample, group]  # assign determined fraction for the group
                     IndCells = IndCells + list(IndCell)
+                    
                 IndNan = np.setdiff1d(np.array(range(Group.shape[1])), np.array(IndCells))
                 Fraction[IndNan] = Fraction[IndNan] / np.sum(Fraction[IndNan])  # normalize the rest of cell types (sum to one)
                 Fraction[IndNan] = Fraction[IndNan] * (1-np.sum(Expected[sample, IndG]))  # assign determined fraction for the rest of cell types
@@ -901,8 +882,7 @@ def Iterative_Optimization(X, stdX, Y, Alpha, Alpha0, Kappa0, SY, Rep, Init_Frac
             # Check convergence
             if np.abs(obj_func[i] - obj_func[i-1]) < minDiff:
                 break
-
-                
+       
     else:  #  Optimization with Temperature
         obj.Check_health()
         obj_func = [None] * len(TempRange)
@@ -929,7 +909,6 @@ def Framework_Iterative(X, stdX, Y, Ind_Marker=None,  # all samples will be used
         Expectation=None, Temperature=None, IterMax=100):
 
     args = locals()
-
     Ngene, Nsample = Y.shape
     Ncell = X.shape[1]
     
@@ -960,6 +939,7 @@ def Framework_Iterative(X, stdX, Y, Ind_Marker=None,  # all samples will be used
                 Update_SigmaY = Update_SigmaY)
                 for rep in range(Nrep)
             )
+        
         ## Final OncoBLADE results
         outs, convs, Reps = zip(*outs)
         cri = [obj.E_step(obj.Nu, obj.Beta, obj.Omega) for obj in outs]
@@ -980,6 +960,8 @@ def Framework_Iterative(X, stdX, Y, Ind_Marker=None,  # all samples will be used
                     Update_SigmaY = Update_SigmaY)
                 for rep in range(Nrep)
             )
+
+        ## Final OncoBLADE results
         outs, convs, Reps = zip(*outs)
         cri = [obj.E_step(obj.Nu, obj.Beta, obj.Omega) for obj in outs]
         out = outs[np.nanargmax(cri)]
@@ -1066,7 +1048,9 @@ def Purify_AllGenes(OncoBLADE_object, Mu, Omega, Y, Ncores):
             Kappa0 = np.concatenate((Kappa0,obj.Kappa0))
             Nu_Init = np.concatenate((Nu_Init,obj.Nu), axis = 1)
             Omega_Init = np.concatenate((Omega_Init,obj.Omega))
+            
     ## Create final merged OncoBLADE obj to return
     obj = OncoBLADE(Y, SigmaY, Mu0, Alpha, Alpha0, Beta0, Kappa0, Nu_Init, Omega_Init, Beta_Init, fix_Beta =True)
     obj.log = logs
+    
     return obj, obj_func
