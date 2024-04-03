@@ -18,7 +18,7 @@ import math
 
 import warnings
 
-__all__ = ['BLADE', 'Framework', 'Framework_Iterative', 'Reestimate_Nu', 'Purify_AllGenes']
+__all__ = ['OncoBLADE', 'Framework', 'Framework_Iterative', 'Reestimate_Nu', 'Purify_AllGenes']
 
 ### Variational parameters Q(X|Nu, Omega) ###
 # Nu: Nsample by Ngene by Ncell
@@ -492,7 +492,7 @@ def Estep_PX(Mu0, Nu, Omega, Alpha0, Beta0, Kappa0, Ncell, Nsample):
     return np.sum(- AlphaN * np.log(ExpBetaN))
 
 
-class BLADE:
+class OncoBLADE:
     def __init__(self, Y, SigmaY=0.05, Mu0=2, Alpha=1,\
             Alpha0=1, Beta0=1, Kappa0=1,\
             Nu_Init=None, Omega_Init=1, Beta_Init=None, \
@@ -820,7 +820,7 @@ class BLADE:
             
 def Optimize(logY, SigmaY, Mu0, Alpha, Alpha0, Beta0, Kappa0, Nu_Init, Omega_Init, Nsample, Ncell, Init_Fraction):
     Beta_Init = np.random.gamma(shape=1, size=(Nsample, Ncell)) * 0.1 + t(Init_Fraction) * 10
-    obs = BLADE(logY, SigmaY, Mu0, Alpha, Alpha0, Beta0, Kappa0,
+    obs = OncoBLADE(logY, SigmaY, Mu0, Alpha, Alpha0, Beta0, Kappa0,
             Nu_Init, Omega_Init, Beta_Init, fix_Nu=True, fix_Omega=True)
     obs.Optimize()
     
@@ -883,7 +883,7 @@ def Iterative_Optimization(X, stdX, Y, Alpha, Alpha0, Kappa0, SY, Rep, Init_Frac
 
     #  Optimization without given Temperature
     Beta_Init = np.random.gamma(shape=1, size=(Nsample, Ncell)) + t(Init_Fraction) * Init_Trust
-    obj = BLADE(logY, SigmaY, Mu0, Alpha, Alpha0, Beta0, Kappa0,
+    obj = OncoBLADE(logY, SigmaY, Mu0, Alpha, Alpha0, Beta0, Kappa0,
                     Nu_Init, Omega_Init, Beta_Init)
 
     if TempRange is None:
@@ -960,7 +960,7 @@ def Framework_Iterative(X, stdX, Y, Ind_Marker=None,  # all samples will be used
                 Update_SigmaY = Update_SigmaY)
                 for rep in range(Nrep)
             )
-        ## Final BLADE results
+        ## Final OncoBLADE results
         outs, convs, Reps = zip(*outs)
         cri = [obj.E_step(obj.Nu, obj.Beta, obj.Omega) for obj in outs]
         out = outs[np.nanargmax(cri)]
@@ -1006,13 +1006,13 @@ def Parallel_Purification(obj, iter=1000, minDiff=10e-4, Update_SigmaY=False):
 
 
 # Purify all genes in parralel using fixed Beta
-def Purify_AllGenes(BLADE_object, Mu, Omega, Y, Ncores):
-    obj = BLADE_object['final_obj']
+def Purify_AllGenes(OncoBLADE_object, Mu, Omega, Y, Ncores):
+    obj = OncoBLADE_object['final_obj']
     Ngene, Nsample = Y.shape
     Ncell = Mu.shape[1]
     logY = np.log(Y+1)
-    SigmaY = np.tile(np.std(logY,1)[:,np.newaxis], [1,Nsample]) * BLADE_object['outs']['sY'] + 0.1
-    Beta0 = BLADE_object['outs']['Alpha0'][0] * np.square(Omega)
+    SigmaY = np.tile(np.std(logY,1)[:,np.newaxis], [1,Nsample]) * OncoBLADE_object['outs']['sY'] + 0.1
+    Beta0 = OncoBLADE_object['outs']['Alpha0'][0] * np.square(Omega)
     Nu_Init = np.zeros((Nsample, Ngene, Ncell))
     for i in range(Nsample):
         Nu_Init[i,:,:] = Mu
@@ -1021,14 +1021,14 @@ def Purify_AllGenes(BLADE_object, Mu, Omega, Y, Ncores):
     Ngene_total = Mu.shape[0]
     objs = []
     for ix in range(Ngene_total):
-        objs.append(BLADE(
+        objs.append(OncoBLADE(
             Y = np.atleast_2d(logY[ix,:]),
             SigmaY = np.atleast_2d(SigmaY[ix,:]),
             Mu0 = np.atleast_2d(Mu[ix,:]),
             Alpha = obj.Alpha,
-            Alpha0 = BLADE_object['outs']['Alpha0'][0],
+            Alpha0 = OncoBLADE_object['outs']['Alpha0'][0],
             Beta0 = np.atleast_2d(Beta0[ix,:]),
-            Kappa0 = BLADE_object['outs']['Kappa0'],
+            Kappa0 = OncoBLADE_object['outs']['Kappa0'],
             Nu_Init = np.reshape(np.atleast_3d(Nu_Init[:,ix,:]), (Nsample,1,Ncell)), ## Reshape else will be (Nsample,Ncell,Ngene/1)
             Omega_Init = np.atleast_2d(Omega[ix,:]),
             Beta_Init = obj.Beta,
@@ -1066,7 +1066,7 @@ def Purify_AllGenes(BLADE_object, Mu, Omega, Y, Ncores):
             Kappa0 = np.concatenate((Kappa0,obj.Kappa0))
             Nu_Init = np.concatenate((Nu_Init,obj.Nu), axis = 1)
             Omega_Init = np.concatenate((Omega_Init,obj.Omega))
-    ## Create final merged BLADE obj to return
-    obj = BLADE(Y, SigmaY, Mu0, Alpha, Alpha0, Beta0, Kappa0, Nu_Init, Omega_Init, Beta_Init, fix_Beta =True)
+    ## Create final merged OncoBLADE obj to return
+    obj = OncoBLADE(Y, SigmaY, Mu0, Alpha, Alpha0, Beta0, Kappa0, Nu_Init, Omega_Init, Beta_Init, fix_Beta =True)
     obj.log = logs
     return obj, obj_func
