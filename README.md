@@ -1,5 +1,5 @@
 <p align="center">
-  <img width="254" height="281" src="https://github.com/tgac-vumc/BLADE/blob/master/logo_final_small.png">
+  <img width="254" height="281" src="https://github.com/tgac-vumc/BLADE/blob/master/logo.png">
 </p>
 
 # BLADE: Bayesian Log-normAl DEconvolution
