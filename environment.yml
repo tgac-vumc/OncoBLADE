@@ -1,4 +1,4 @@
-name: BLADE
+name: OncoBLADE
 channels:
   - bioconda
   - conda-forge
@@ -11,8 +11,7 @@ dependencies:
   - multiprocess
   - time
   - scipy
-  - qgrid
   - seaborn
   - pip
   - pip:
-      - BLADE-Deconvolution
+      - OncoBLADE
