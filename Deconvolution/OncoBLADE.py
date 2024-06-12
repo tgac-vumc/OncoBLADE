@@ -994,7 +994,7 @@ def Purify_AllGenes(OncoBLADE_object, Mu, Omega, Y, Ncores):
     Ncell = Mu.shape[1]
     logY = np.log(Y+1)
     SigmaY = np.tile(np.std(logY,1)[:,np.newaxis], [1,Nsample]) * OncoBLADE_object['outs']['sY'] + 0.1
-    Beta0 = OncoBLADE_object['outs']['Alpha0'][0] * np.square(Omega)
+    Beta0 = OncoBLADE_object['outs']['Alpha0'] * np.square(Omega)
     Nu_Init = np.zeros((Nsample, Ngene, Ncell))
     for i in range(Nsample):
         Nu_Init[i,:,:] = Mu
@@ -1008,7 +1008,7 @@ def Purify_AllGenes(OncoBLADE_object, Mu, Omega, Y, Ncores):
             SigmaY = np.atleast_2d(SigmaY[ix,:]),
             Mu0 = np.atleast_2d(Mu[ix,:]),
             Alpha = obj.Alpha,
-            Alpha0 = OncoBLADE_object['outs']['Alpha0'][0],
+            Alpha0 = OncoBLADE_object['outs']['Alpha0'],
             Beta0 = np.atleast_2d(Beta0[ix,:]),
             Kappa0 = OncoBLADE_object['outs']['Kappa0'],
             Nu_Init = np.reshape(np.atleast_3d(Nu_Init[:,ix,:]), (Nsample,1,Ncell)), ## Reshape else will be (Nsample,Ncell,Ngene/1)
