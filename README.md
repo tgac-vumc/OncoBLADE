@@ -3,7 +3,7 @@
 </p>
 
 # OncoBLADE: Malignant cell fraction-informed deconvolution
-OncoBLADE is a Bayesian deconvolution method designed to estimate cell type-specific gene expression profiles and fractions from bulk RNA profiles of tumor specimens by integrating prior knowledge on cell fractions
+OncoBLADE is a Bayesian deconvolution method designed to estimate cell type-specific gene expression profiles and fractions from bulk RNA profiles of tumor specimens by integrating prior knowledge on cell fractions. You can find the [preprint of OncoBLADE at Research Square](https://www.researchsquare.com/article/rs-4252952/v1).
 
 <p align="center">
   <img width="75%" height="75%" src="https://github.com/tgac-vumc/OncoBLADE/blob/main/VisualAbstract.png">
@@ -11,7 +11,7 @@ OncoBLADE is a Bayesian deconvolution method designed to estimate cell type-spec
 
 
 
-#### Demo notebook is currently under construction
+#### Demo notebook is available under `jupyter`. See below how to open it. 
 
 
 ## System Requirements
@@ -59,28 +59,41 @@ bash Miniconda3-latest-MacOSX-x86_64.sh
 
 ### Step 2: Create a conda environment
 
-You can install all the necessary dependency using the following command (may takes few minutes).
+You can install all the necessary dependency using the following command (may takes few minutes; `mamba` is quicker in general).
 
 ```
 conda env create --file environment.yml
 ```
 
-Then, the `BLADE` environment can be activate by:
+Then, the `OncoBLADE` environment can be activate by:
 
 ```
-conda activate BLADE
+conda activate OncoBLADE
+```
+
+### Step 3: Running a demo script
+
+You can find a demo script under `jupyter` folder.
+You can open the script using the command below after activating the `OncoBLADE` environment:
+
+```
+jupyter notebook jupyter/OncoBLADE\ -\ Demo script.ipynb
 ```
 
 
-## Overview of OncoBLADE (WIP)
+## Overview of OncoBLADE (In progress)
 In the OncoBLADE package, you can load the following functions and modules.
 
-- `BLADE`: A class object contains core algorithms of `BLADE`. Users can reach internal variables (`Nu`, `Omega`, and `Beta`) and functions for calculating objective functions (ELBO function) and gradients with respect to the variational parameters. There also is an optimization function (`BLADE.Optimize()`) for performing L-BFGS optimization. Though this is the core, we also provide a more accessible function (`BLADE_framework`) that performs deconvolution. See below to obtain the current estimate of cellualr fractions, gene expression profiles per cell type and per sample:
+- `BLADE`: A class object contains core algorithms of `OncoBLADE`, an extended version of `BLADE`. Users can reach internal variables (`Nu`, `Omega`, and `Beta`) and functions for calculating objective functions (ELBO function) and gradients with respect to the variational parameters. There also is an optimization function (`BLADE.Optimize()`) for performing L-BFGS optimization. OncoBLADE features an iterative update to optimize hyperparameter `Alpha` and integration of prior expectation of subset of cell types. In BLADE, `Alpha` is a user-defined hyperparameter.
+
+To run classic BLADE and OncoBLADE, we provide main functinos `BLADE_framework` for BLADE and `Framework_Iterative` for OncoBLADE. 
+
+See below to obtain the current estimate of cellualr fractions, gene expression profiles per cell type and per sample:
   - `ExpF(self.Beta)` : returns a `Nsample` by `Ngene` matrix contains estimated fraction of each cell type in each sample.
   - `self.Nu`: a `Nsample` by `Ngene` by `Ncell` multidimensional array contains estimated gene expression levels of each gene in each cell type for each sample.
   - `numpy.mean(self.Nu,0)`: To obtain a estimated gene expression profile per cell type, we can simply take an average across the samples.
 
-- `Framework_Iterative`: A framework based on the `BLADE` class module above. Users need to provide the following input/output arguments.
+- `Framework_Iterative`: OncoBLADE framework based on the `BLADE` class module above. Users need to provide the following input/output arguments.
   - Input arguments
     - `X`: a `Ngene` by `Ncell` matrix contains average gene expression profiles per cell type (a signature matrix) in log-scale.
     - `stdX`: a `Ngene` by `Ncell` matrix contains standard deviation per gene per cell type (a signature matrix of gene expression variability).
@@ -88,13 +101,17 @@ In the OncoBLADE package, you can load the following functions and modules.
     - `Expectation`: a `Nsample` by `Ncell` matrix contains the expected cell fraction used to inform OncoBLADE [Optional]
     - `Ind_Marker`: Index for marker genes. By default, `[True]*Ngene` (all genes used without filtering). For the genes with `False` they are excluded in the first phase (Empirical Bayes) for finidng the best hyperparameters.
     - `Ind_sample`: Index for the samples used in the first phase (Empirical Bayes). By default, `[True]*Nsample` (all samples used).
-    - `Alphas`, `Alpha0s`, `Kappa0s` and `SYs`: all possible hyperparameters considered in the phase of Empirical Bayes. A default parameters are offered as described in the manuscript (to appear): `Alphas=[1,10]`, `Alpha0s=[0.1, 1, 5]`, `Kappa0s=[1,0.5,0.1]` and `SYs=[1,0.3,0.5]`. 
-    - `Nrep`: Number of repeat for evaluating each parameter configuration in Empirical Bayes phase. By default, `Nrep=3`.
-    - `Nrepfinal`: Number of repeated optimizations for the final parameter set. By default, `Nrepfinal=10`.
+    - `Alpha`, `Alpha0`, `Kappa0` and `SY`: hyperparameters used in the model. `Alpha` is also optimzed, while others are fixed. By default, `Alpha=1`, `Alpha0=0.1`, 'Kappa0=1`, `sY=1`.
+    - `IterMax`: Number of maximum iteration between variational parameter optimization by L-BFGS and updating hyperparameter `Alpha`. By default, `iterMax=100`.
+    - `Nrep`: Number of random initial guess used to run OncoBLADE. The best in terms of ELBO function will be chosed among the local optimum. By default, `Nrep=3`.
     - `Njob`: Number of jobs executed in parallel. By default, `Njob=10`.
+
   - Output values
     - `final_obj`: A final `BLADE` object with optimized variational parameters and hyperparameters.
-    - `best_obj`: The best object form Empirical Bayes step. If no genes and samples are filtered, `best_obj` is the same as `final_obj`.
-    - `best_set`: A list contains the hyperparameters selected in the Empirical Bayes step.
-    - `All_out`: A list of `BLADE` objects from the Empirical Bayes step.
-- `BLADE_job`/`Optimize`: Internal functions used by `Framework`.
+    - `conv`: The ELBO function value (i.e., local optimum) for the final `BLADE` object.
+    - `outs`: `Nrep` BLADE objects optimized with all random initial guesses with their final ELBO values.
+
+
+### TBD
+
+Functions for purification: `Parallel_Purification`, `Purify_AllGenes`
