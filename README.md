@@ -84,9 +84,9 @@ jupyter notebook jupyter/OncoBLADE\ -\ Demo script.ipynb
 ## Overview of OncoBLADE (In progress)
 In the OncoBLADE package, you can load the following functions and modules.
 
-- `BLADE`: A class object contains core algorithms of `OncoBLADE`, an extended version of `BLADE`. Users can reach internal variables (`Nu`, `Omega`, and `Beta`) and functions for calculating objective functions (ELBO function) and gradients with respect to the variational parameters. There also is an optimization function (`BLADE.Optimize()`) for performing L-BFGS optimization. OncoBLADE features an iterative update to optimize hyperparameter `Alpha` and integration of prior expectation of subset of cell types. In BLADE, `Alpha` is a user-defined hyperparameter.
+- `oncoBLADE`: A class object contains core algorithms of `OncoBLADE`, an extended version of `BLADE`. Users can reach internal variables (`Nu`, `Omega`, and `Beta`) and functions for calculating objective functions (ELBO function) and gradients with respect to the variational parameters. There also is an optimization function (`oncoBLADE.Optimize()`) for performing L-BFGS optimization. OncoBLADE features an iterative update to optimize hyperparameter `Alpha` and integration of prior expectation of subset of cell types. In BLADE, `Alpha` is a user-defined hyperparameter.
 
-To run classic BLADE and OncoBLADE, we provide main functinos `BLADE_framework` for BLADE and `Framework_Iterative` for OncoBLADE. 
+To run classic BLADE and OncoBLADE, we provide main functinos `Framework` for BLADE and `Framework_Iterative` for OncoBLADE. 
 
 See below to obtain the current estimate of cellualr fractions, gene expression profiles per cell type and per sample:
   - `ExpF(self.Beta)` : returns a `Nsample` by `Ngene` matrix contains estimated fraction of each cell type in each sample.
