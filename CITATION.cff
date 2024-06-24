@@ -1,0 +1,54 @@
+cff-version: 1.2.0
+message: "If you use this software, please cite it as below."
+authors:
+  - family-names: 'Jurriaan'
+    given-names: 'Janssen'
+    orcid: https://orcid.org/0000-0003-2536-7864
+  - family-names: 'Mischa'
+    given-names: 'Steketee'
+    orcid: https://orcid.org/0000-0001-7138-7554
+  - family-names: 'Yongsoo'
+    given-names: 'Kim'
+    orcid: https://orcid.org/0000-0002-2995-2131
+title: "OncoBLADE"
+identifiers:
+  - type: doi
+    value: 10.21203/rs.3.rs-4252952/v1
+repository-code: 'https://github.com/tgac-vumc/OncoBLADE'
+license: MIT
+preferred-citation:
+  status: preprint
+  type: article
+  authors:
+  - family-names: 'Jurriaan'
+    given-names: 'Janssen'
+    orcid: https://orcid.org/0000-0003-2536-7864
+  - family-names: 'Teodora'
+    given-names: 'Radonic'
+  - family-names: 'Mischa'
+    given-names: 'Steketee'
+    orcid: https://orcid.org/0000-0001-7138-7554
+  - family-names: 'Saskia'
+    given-names: 'van Asten'
+  - family-names: 'Paul'
+    given-names: 'Eijk'
+  - family-names: 'Febe'
+    given-names: 'van Maldegem'
+    orcid: https://orcid.org/0000-0002-2544-544X
+  - family-names: 'David'
+    given-names: 'Noske'
+  - family-names: 'Idris'
+    given-names: 'Bahce'
+  - family-names: 'Juan'
+    given-names: 'Garcia Vallejo'
+  - family-names: 'Mark'
+    given-names: 'van de Wiel'
+  - family-names: 'Bauke'
+    given-names: 'Ylstra'
+    orcid: https://orcid.org/0000-0001-9479-3010
+  - family-names: 'Yongsoo'
+    given-names: 'Kim'
+    orcid: https://orcid.org/0000-0002-2995-2131
+  doi: "10.21203/rs.3.rs-4252952/v1"
+  journal: "Research Square"
+  title: "Hidden RNA profiles of cells in the tumor microenvironment accurately revealed by malignant cell fraction-informed deconvolution"
