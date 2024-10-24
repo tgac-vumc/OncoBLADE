@@ -1,6 +1,5 @@
 # New imports
 import torch
-import torch.optim as optim
 import torch.special
 
 
@@ -9,7 +8,6 @@ from numba import jit, njit
 import numpy as np
 from numpy import transpose as t
 import scipy.optimize
-from scipy.optimize import OptimizeResult
 from scipy.special import loggamma
 from scipy.special import gamma
 from scipy.special import digamma
@@ -27,7 +25,6 @@ import math
 import warnings
 
 from timeit import default_timer as timer
-from tqdm import trange
 
 
 # The below function is a decorator to cast numpy arrays to torch tensors
@@ -473,7 +470,6 @@ class OncoBLADE:
             self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
         else:
             self.device = torch.device(device)
-        self.losses = []
 
         # Convert Y to a tensor and move to the specified device
         self.weight = 1
@@ -486,7 +482,6 @@ class OncoBLADE:
             'Nu': fix_Nu,
             'Omega': fix_Omega
         }
-        self.nr_of_calls = 0
 
         if not isinstance(Mu0, torch.Tensor) and not isinstance(Mu0, np.ndarray):  # Check if Mu0 is a scalar
             self.Ncell = Mu0
@@ -563,7 +558,7 @@ class OncoBLADE:
         self.Alpha0 = self.Alpha0.to(self.device)
         self.Beta0 = self.Beta0.to(self.device)
         self.Kappa0 = self.Kappa0.to(self.device)
-
+        
     def Ydiff(self, Nu, Beta):
         F = self.ExpF(Beta)
         Ypred = torch.matmul(torch.exp(Nu), F.T)
@@ -664,16 +659,16 @@ class OncoBLADE:
     def E_step(self, Nu, Beta, Omega):
         PX = self.Estep_PX(Nu, Omega) * (1/self.weight)
         PY = self.Estep_PY(Nu, Omega, Beta)
-        PF = self.Estep_PF(Beta) * np.sqrt(self.Ngene / self.Ncell)# It's numpy but this is just a float.
+        PF = self.Estep_PF(Beta) * np.sqrt(self.Ngene / self.Ncell)
         QX = self.Estep_QX(Omega) * (1/self.weight)
         QF = self.Estep_QF(Beta) * np.sqrt(self.Ngene / self.Ncell)
         return PX+PY+PF-QX-QF
 
 
     def Optimize(self):
+
         # loss function
         def loss(params):
-            self.nr_of_calls += 1
             with torch.no_grad():
                 params = torch.tensor(params, device=self.device)
                 Nu = params[0:self.Ncell*self.Ngene*self.Nsample].reshape(self.Nsample, self.Ngene, self.Ncell)
@@ -691,11 +686,6 @@ class OncoBLADE:
                 loss = -self.E_step(Nu, Beta, Omega)
                 return loss.cpu().numpy()
 
-
-        def callback(xk):
-            self.losses.append(loss(xk))
-
-
         # gradient function
         def grad(params):
             with torch.no_grad():
@@ -710,7 +700,7 @@ class OncoBLADE:
 
                 #s1 = timer()
                 if self.Fix_par['Nu']:
-                    g_Nu = torch.zeros(Nu.shape, device=self.device)
+                    g_Nu = torch.zeros(Nu.shape, device = self.device)
                 else:
                     g_Nu = -self.grad_Nu(Nu, Omega, Beta)
                 #e1 = timer()
@@ -719,7 +709,7 @@ class OncoBLADE:
 
                 #s1 = timer()
                 if self.Fix_par['Omega']:
-                    g_Omega = torch.zeros(Omega.shape, device=self.device)
+                    g_Omega = torch.zeros(Omega.shape, device = self.device)
                 else:
                     g_Omega = -self.grad_Omega(Nu, Omega, Beta)
                 #e1 = timer()
@@ -727,7 +717,7 @@ class OncoBLADE:
 
                 #s1 = timer()
                 if self.Fix_par['Beta']:
-                    g_Beta = torch.zeros(Beta.shape, device=self.device)
+                    g_Beta = torch.zeros(Beta.shape, device = self.device)
                 else:
                     g_Beta = -self.grad_Beta(Nu, Omega, Beta)
                 #e1 = timer()
@@ -744,14 +734,13 @@ class OncoBLADE:
         Init = torch.cat((self.Nu.flatten(), self.Omega.flatten(), self.Beta.flatten()))
         bounds = [(-np.inf, np.inf) if i < (self.Ncell*self.Ngene*self.Nsample) else (0.0000001, 100) for i in range(len(Init))]
 
-        #s1 = timer()
-        #TODO: REMOVE THE ITER CONSTRAINT HERE!!
+        s1 = timer()
         out = scipy.optimize.minimize(
                 fun = loss, x0 = Init.cpu().numpy(), bounds = bounds, jac = grad,
-                options = {'disp': False},# 'maxiter':2},
-                method='L-BFGS-B', callback=callback)
-        #e1 = timer()
-        #print("        Time (s) scipy optimize", e1 - s1)
+                options = {'disp': True},#, 'maxiter' : 1000},
+                method='L-BFGS-B')
+        e1 = timer()
+        print("        Time (s) scipy optimize", e1 - s1)
 
         params = out.x
 
@@ -892,110 +881,6 @@ class OncoBLADE:
             self.SigmaY = torch.mean(torch.sqrt(a + b), dim=1, keepdim=True).expand(-1, self.Nsample)
 
 
-class TorchBLADE(OncoBLADE):
-    def __init__(self, Y, SigmaY=0.05, Mu0=2, Alpha=1,
-                 Alpha0=1, Beta0=1, Kappa0=1,
-                 Nu_Init=None, Omega_Init=1, Beta_Init=None,
-                 fix_Beta=False, fix_Nu=False, fix_Omega=False,
-                 device=None):
-        # Call the parent class's constructor (OncoBLADE)
-        super().__init__(Y, SigmaY, Mu0, Alpha, Alpha0, Beta0, Kappa0, Nu_Init, Omega_Init, Beta_Init,
-                         fix_Beta, fix_Nu, fix_Omega, device)
-        self.losses = []
-        self.nr_of_calls = 0
-        self.ftol = 1e7 * np.finfo(float).eps
-
-    def Optimize(self):
-        # Define the parameters to optimize
-        #TODO: Somehow this is less VRAM greedy, interesting.
-        #TODO: Probably because only one leaf node in computation graph.
-        #params = torch.cat((self.Nu.flatten(), self.Omega.flatten(), self.Beta.flatten()))
-        #params.requires_grad = True  # Set requires_grad on the concatenated tensor
-        #self.Nu.irequires_grad = True
-        self.Nu.requires_grad = False
-        #self.Omega.requires_grad = True
-        self.Omega.requires_grad = False
-        #self.Beta.requires_grad = True
-        self.Beta.requires_grad = False
-
-        # Define the L-BFGS optimizer
-        #optimizer = optim.LBFGS([self.Nu, self.Omega, self.Beta], lr=1e-1, line_search_fn=None)
-        #optimizer = optim.LBFGS([params], max_iter=10, history_size=10, line_search_fn='strong_wolfe')
-        optimizer = optim.SGD([self.Nu, self.Omega, self.Beta], lr=1e-11, momentum=0.9)
-
-        def grad():
-            with torch.no_grad():
-                if self.Fix_par['Nu']:
-                    g_Nu = torch.zeros(self.Nu.shape)
-                else:
-                    g_Nu = -self.grad_Nu(self.Nu, self.Omega, self.Beta)
-
-                if self.Fix_par['Omega']:
-                    g_Omega = torch.zeros(Omega.shape)
-                else:
-                    g_Omega = -self.grad_Omega(self.Nu, self.Omega, self.Beta)
-
-                if self.Fix_par['Beta']:
-                    g_Beta = torch.zeros(Beta.shape)
-                else:
-                    g_Beta = -self.grad_Beta(self.Nu, self.Omega, self.Beta)
-
-                self.Nu.grad = g_Nu
-                self.Omega.grad = g_Omega
-                self.Beta.grad = g_Beta
-
-        # Closure required by LBFGS
-        def closure():
-            self.nr_of_calls += 1
-            optimizer.zero_grad()  # Reset gradients
-
-            # Compute the negative ELBO loss
-            with torch.no_grad():
-                loss = -self.E_step(self.Nu, self.Beta, self.Omega)
-                print(loss)
-            self.losses.append(loss.item())
-            #loss.backward()  # Autograd computes the gradients
-            grad()
-            return loss
-
-        def early_stop(loss, prev_loss):
-            # (f^k - f^{k+1})/max{|f^k|,|f^{k+1}|,1} <= ftol.
-            diff = (loss - prev_loss) / max(abs(loss), abs(prev_loss), 1)
-            pass
-
-        # Run the optimizer for the desired number of iterations
-        #TODO: We need some sort of tolerance early stopping.
-        total_steps = 20
-        prev_loss = None
-        for i in range(total_steps):
-            self.nr_of_calls += 1
-            optimizer.zero_grad()  # Reset gradients
-
-            # Manually compute the loss (no gradient tracking during loss computation)
-            with torch.no_grad():
-                loss = -self.E_step(self.Nu, self.Beta, self.Omega)
-                print(loss)
-
-            self.losses.append(loss.item())
-
-            # Manually compute and register the gradients
-            grad()
-
-            # Perform a step of optimization
-            optimizer.step()
-
-        #for step in trange(total_steps):
-        #    optimizer.step(closure)
-        #
-        #    # Apply bounds manually after optimizer step
-        #    #TODO: Bounds are a bit iffy to be honest...
-        #    #with torch.no_grad():
-        #    #    for i in range(len(params)):
-        #    #        if bounds[i][0] != -np.inf or bounds[i][1] != np.inf:
-        #    #            params[i].clamp_(bounds[i][0], bounds[i][1])
-        self.log = True  # Indicate success
-
-
 
 def Optimize(logY, SigmaY, Mu0, Alpha, Alpha0, Beta0, Kappa0, Nu_Init, Omega_Init, Nsample, Ncell, Init_Fraction):
     Beta_Init = np.random.gamma(shape=1, size=(Nsample, Ncell)) * 0.1 + t(Init_Fraction) * 10
@@ -1044,67 +929,6 @@ def SVR_Initialization(X, Y, Nus, Njob=1, fsel=0):
         Ind_use = np.ones((Ngene)) > 0
 
     return Init_Fraction, Ind_use
-
-
-def Torch_Iterative_Optimization(X, stdX, Y, Alpha, Alpha0, Kappa0, SY, Rep, Init_Fraction, Init_Trust=10,
-                           Expected=None, iter=100, minDiff=1e-4, TempRange=None, Update_SigmaY=False):
-    s1 = timer()
-    Ngene, Nsample = Y.shape
-    Ncell = X.shape[1]
-
-    Mu0 = X
-    logY = np.log(Y + 1)
-    SigmaY = np.tile(np.std(logY, 1)[:, np.newaxis], [1, Nsample]) * SY + 0.1
-    Omega_Init = stdX
-    Beta0 = Alpha0 * np.square(stdX)
-
-    Nu_Init = np.zeros((Nsample, Ngene, Ncell))
-    for i in range(Nsample):
-        Nu_Init[i, :, :] = X
-    e1 = timer()
-    print("    Time (s) Init part Iterative_optimization", e1 - s1)
-
-    # Optimization without given Temperature
-    s2 = timer()
-    Beta_Init = np.random.gamma(shape=1, size=(Nsample, Ncell)) + t(Init_Fraction) * Init_Trust
-    obj = TorchBLADE(logY, SigmaY, Mu0, Alpha, Alpha0, Beta0, Kappa0,
-                    Nu_Init, Omega_Init, Beta_Init)
-
-    obj.Check_health()
-    obj_func = [None] * iter
-    obj_func[0] = obj.E_step(obj.Nu, obj.Beta, obj.Omega)
-    e2 = timer()
-    print("    Time (s) second part of Iterative_optimization", e2 - s2)
-
-    for i in range(1, iter):
-        s3 = timer()
-        obj.Optimize()
-        print(type(obj.Nu))
-        e3 = timer()
-        print("    Time (s) obj.Optimizer()", e3 - s3)
-        s4 = timer()
-        obj.Update_Alpha_Group(Expected=Expected)
-        print(type(obj.Nu))
-        e4 = timer()
-        print("    Time (s) obj.Update_Alpha_Group", e4 - s4)
-        s5 = timer()
-        if Update_SigmaY:
-            obj.Update_SigmaY()
-        print(type(obj.Nu))
-        e5 = timer()
-        print("    Time (s) obj.Update_SigmaY()", e5 - s5)
-
-        s6 = timer()
-        obj_func[i] = obj.E_step(obj.Nu, obj.Beta, obj.Omega)
-        #obj_func[i] = obj.E_step(torch.tensor(obj.Nu), torch.tensor(obj.Beta), torch.tensor(obj.Omega))
-        e6 = timer()
-        print("    Time (s) obj.E_step()", e6 - s6)
-
-        # Check convergence
-        if torch.abs(obj_func[i] - obj_func[i - 1]) < minDiff:
-            break
-
-    return obj, obj_func, Rep
 
 
 def Iterative_Optimization(X, stdX, Y, Alpha, Alpha0, Kappa0, SY, Rep, Init_Fraction, Init_Trust=10,
@@ -1166,84 +990,6 @@ def Iterative_Optimization(X, stdX, Y, Alpha, Alpha0, Kappa0, SY, Rep, Init_Frac
             break
 
     return obj, obj_func, Rep
-
-
-def Torch_Framework_Iterative(X, stdX, Y, Ind_Marker=None,
-                        Alpha=1, Alpha0=0.1, Kappa0=1, sY=1,
-                        Nrep=3, Njob=10, fsel=0, Update_SigmaY=False, Init_Trust=10,
-                        Expectation=None, Temperature=None, IterMax=100):
-    args = locals()
-    Ngene, Nsample = Y.shape
-    Ncell = X.shape[1]
-
-    if Ind_Marker is None:
-        Ind_Marker = [True] * Ngene
-
-    X_small = X[Ind_Marker,:]
-    Y_small = Y[Ind_Marker,:]
-    stdX_small = stdX[Ind_Marker,:]
-
-    Nmarker = Y_small.shape[0]
-    Nsample_small = Y_small.shape[1]
-
-    if Nmarker < Ngene:
-        print("start optimization using marker genes: " + str(Nmarker) +\
-            " genes out of " + str(Ngene) + " genes.")
-    else:
-        print("all of " + str(Ngene) + " genes are used for optimization.")
-
-    print('Initialization with Support vector regression')
-    s1 = timer()
-    Init_Fraction, Ind_use = SVR_Initialization(X_small, Y_small, Njob=Njob, Nus=[0.25, 0.5, 0.75])
-    e1 = timer()
-    print("Time (s) SVR_Init", e1-s1)
-
-    if Temperature is None or Temperature is False: #  Optimization without the temperature
-        # Run the optimizations sequentially
-        s2 = timer()
-        #with parallel_backend('threading', n_jobs=Njob):
-        #    outs = Parallel(n_jobs=Njob, verbose=10)(
-        #        delayed(Torch_Iterative_Optimization)(X_small[Ind_use,:], stdX_small[Ind_use,:], Y_small[Ind_use,:],
-        #            Alpha, Alpha0, Kappa0, sY, rep, Init_Fraction, Expected=Expectation, Init_Trust=Init_Trust, iter=IterMax,
-        #            Update_SigmaY = Update_SigmaY)
-        #            for rep in range(Nrep)
-        #        )
-        outs = [Torch_Iterative_Optimization(X_small[Ind_use, :], stdX_small[Ind_use, :], Y_small[Ind_use, :],
-                                       Alpha, Alpha0, Kappa0, sY, rep, Init_Fraction,
-                                       Expected=Expectation, Init_Trust=Init_Trust, iter=IterMax,
-                                       Update_SigmaY=Update_SigmaY) for rep in range(Nrep)]
-        e2 = timer()
-        print("Time (s) Iterative Optim loop", e2-s2)
-
-        ## Final OncoBLADE results
-        s3 = timer()
-        outs, convs, Reps = zip(*outs)
-        cri = [obj.E_step(obj.Nu, obj.Beta, obj.Omega).cpu().detach().numpy() for obj in outs]
-        out = outs[np.nanargmax(cri)]
-        conv = convs[np.nanargmax(cri)]
-        e3 = timer()
-        print("Time (s) Final part framework", e3-s3)
-    else:
-        if Temperature is True:
-            Temperature = [1, 100]
-        else:
-            if len(Temperature) != 2:
-                raise ValueError('Temperature has to be either None, True or list of 2 temperature values (minimum and maximum temperatures)')
-            if Temperature[1] < Temperature[0]:
-                raise ValueError('A lower maximum temperature than minimum temperature is given')
-
-        outs = [Iterative_Optimization(X_small[Ind_use, :], stdX_small[Ind_use, :], Y_small[Ind_use, :],
-                                       Alpha, Alpha0, Kappa0, sY, rep, Init_Fraction,
-                                       Expected=Expectation, Init_Trust=Init_Trust, TempRange=np.linspace(Temperature[0], Temperature[1], iter=IterMax),
-                                       Update_SigmaY=Update_SigmaY) for rep in range(Nrep)]
-
-        ## Final OncoBLADE results
-        outs, convs, Reps = zip(*outs)
-        cri = [obj.E_step(obj.Nu, obj.Beta, obj.Omega).cpu().numpy() for obj in outs]
-        out = outs[np.nanargmax(cri)]
-        conv = convs[np.nanargmax(cri)]
-
-    return out, conv, zip(outs, cri), args
 
 
 def Framework_Iterative(X, stdX, Y, Ind_Marker=None,
@@ -1324,14 +1070,17 @@ def Framework_Iterative(X, stdX, Y, Ind_Marker=None,
     return out, conv, zip(outs, cri), args
 
 
-def Parallel_Purification(obj, iter=3, minDiff=10e-4, Update_SigmaY=False):
+def Parallel_Purification(obj, iter=1000, minDiff=10e-4, Update_SigmaY=False):
     obj.Check_health()
     obj_func = [float('nan')] * iter
     obj_func[0] = obj.E_step(obj.Nu, obj.Beta, obj.Omega)
+    print('First estep worked')
     for i in range(1,iter):
+        print('start of Reestimation')
         obj.Reestimate_Nu()
+        print('Reestimation step finished')
         if Update_SigmaY:
-            obj.Update_SigmaY()
+                obj.Update_SigmaY()
         obj_func[i] = obj.E_step(obj.Nu, obj.Beta, obj.Omega)
 
         # Check convergence
@@ -1343,8 +1092,7 @@ def Parallel_Purification(obj, iter=3, minDiff=10e-4, Update_SigmaY=False):
 
 # Purify all genes in parralel using fixed Beta
 def Purify_AllGenes(OncoBLADE_object, Mu, Omega, Y, Ncores):
-    obj = OncoBLADE_object['final_obj']
-    obj.device = torch.device('cpu')
+    old_obj = OncoBLADE_object['final_obj']
     Ngene, Nsample = Y.shape
     Ncell = Mu.shape[1]
     logY = np.log(Y+1)
@@ -1354,14 +1102,29 @@ def Purify_AllGenes(OncoBLADE_object, Mu, Omega, Y, Ncores):
     for i in range(Nsample):
         Nu_Init[i,:,:] = Mu
 
+        
+    obj = OncoBLADE(
+            Y = np.atleast_2d(logY),
+            SigmaY = np.atleast_2d(SigmaY),
+            Mu0 = np.atleast_2d(Mu),
+            Alpha = old_obj.Alpha,
+            Alpha0 = OncoBLADE_object['outs']['Alpha0'],
+            Beta0 = np.atleast_2d(Beta0),
+            Kappa0 = OncoBLADE_object['outs']['Kappa0'],
+            Nu_Init = np.reshape(np.atleast_3d(Nu_Init), (Nsample,Ngene,Ncell)), ## Reshape else will be (Nsample,Ncell,Ngene/1)
+            Omega_Init = np.atleast_2d(Omega),
+            Beta_Init = old_obj.Beta,
+            fix_Beta=True,
+            device = torch.device('cuda'))
+
     # Fetch objs per gene
     Ngene_total = Mu.shape[0]
+    print(torch.device)
     obj, obj_func = Parallel_Purification(obj)
-
+    
     """
     objs = []
     for ix in range(Ngene_total):
-        #obj = OncoBLADE(
         objs.append(OncoBLADE(
             Y = np.atleast_2d(logY[ix,:]),
             SigmaY = np.atleast_2d(SigmaY[ix,:]),
@@ -1375,11 +1138,10 @@ def Purify_AllGenes(OncoBLADE_object, Mu, Omega, Y, Ncores):
             Beta_Init = obj.Beta,
             fix_Beta=True))
 
-    with parallel_backend('threading', n_jobs=Ncores):
-        outs = Parallel(n_jobs=Ncores, verbose=10)(
-                    delayed(Parallel_Purification)(obj)
-                        for obj in objs
-                    )
+    outs = Parallel(n_jobs=Ncores, verbose=10)(
+                delayed(Parallel_Purification)(obj)
+                    for obj in objs
+                )
 
     objs, obj_func = zip(*outs)
     ## sum ofv over all genes
